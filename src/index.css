@@ -1,0 +1,143 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color-scheme: dark;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%);
+  color: #e2e8f0;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Monaco Editor 自定义样式 */
+.monaco-editor .margin {
+  background-color: #1e293b !important;
+}
+
+.monaco-editor .editor-background {
+  background-color: #0f172a !important;
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* 文件上传拖拽区域 */
+.drop-zone {
+  @apply border-2 border-dashed border-slate-600 rounded-xl p-8 text-center transition-all duration-300;
+  @apply hover:border-accent-500 hover:bg-slate-800/50;
+}
+
+.drop-zone.drag-over {
+  @apply border-accent-500 bg-accent-500/10 scale-[1.02];
+}
+
+/* 冲突块操作按钮 */
+.conflict-btn {
+  @apply px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200;
+  @apply hover:scale-105 active:scale-95;
+}
+
+.conflict-btn-local {
+  @apply bg-blue-600 hover:bg-blue-500 text-white;
+}
+
+.conflict-btn-remote {
+  @apply bg-green-600 hover:bg-green-500 text-white;
+}
+
+/* 骨架屏 */
+.skeleton {
+  background: linear-gradient(90deg, #334155 25%, #475569 50%, #334155 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s linear infinite;
+}
+
+/* 编辑器面板头部 */
+.editor-header {
+  @apply bg-slate-800/80 backdrop-blur-sm border-b border-slate-700 px-4 py-2;
+  @apply flex items-center justify-between;
+}
+
+.editor-title {
+  @apply font-semibold text-sm text-slate-200;
+}
+
+/* Monaco 行装饰覆盖层 */
+.inline-decoration {
+  position: absolute;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+}
+
+/* 工具提示 */
+.tooltip {
+  @apply absolute bg-slate-800 text-slate-200 text-xs px-2 py-1 rounded;
+  @apply opacity-0 invisible transition-all duration-200;
+  @apply z-50 whitespace-nowrap;
+}
+
+.tooltip-trigger:hover .tooltip {
+  @apply opacity-100 visible;
+}
+
+/* 按钮通用样式 */
+.btn {
+  @apply px-4 py-2 rounded-lg font-medium transition-all duration-200;
+  @apply hover:scale-[1.02] active:scale-[0.98];
+  @apply focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900;
+}
+
+.btn-primary {
+  @apply bg-accent-500 hover:bg-accent-400 text-slate-900 font-semibold;
+  @apply focus:ring-accent-500;
+}
+
+.btn-secondary {
+  @apply bg-slate-700 hover:bg-slate-600 text-slate-200;
+  @apply focus:ring-slate-500;
+}
+
+.btn-danger {
+  @apply bg-red-600 hover:bg-red-500 text-white;
+  @apply focus:ring-red-500;
+}
+
+/* 卡片 */
+.card {
+  @apply bg-slate-800/60 backdrop-blur-sm rounded-2xl border border-slate-700/50;
+  @apply shadow-xl shadow-black/20;
+}
