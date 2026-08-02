@@ -10,7 +10,17 @@
     "preview": "vite preview",
     "check": "tsc --noEmit",
     "server:dev": "nodemon",
-    "dev": "concurrently \"npm run client:dev\" \"npm run server:dev\""
+    "dev": "concurrently \"npm run client:dev\" \"npm run server:dev\"",
+    "test": "node --import tsx --test test/**/*.test.ts",
+    "test:unit": "node --import tsx --test test/unit/*.test.ts",
+    "test:property": "node --import tsx --test test/property/*.test.ts",
+    "test:regression": "node --import tsx --test test/regression/*.regression.test.ts",
+    "test:diff": "node --import tsx --test test/regression/diff.regression.test.ts",
+    "test:merge": "node --import tsx --test test/regression/merge.regression.test.ts",
+    "test:resolve": "node --import tsx --test test/regression/resolve.regression.test.ts",
+    "test:api": "node --import tsx --test test/regression/api.regression.test.ts",
+    "test:session": "node --import tsx --test test/session/*.test.ts",
+    "test:integration": "node --import tsx --test test/integration/*.test.ts"
   },
   "dependencies": {
     "clsx": "^2.1.1",

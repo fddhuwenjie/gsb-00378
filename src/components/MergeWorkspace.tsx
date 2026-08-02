@@ -38,7 +38,6 @@ export default function MergeWorkspace() {
     error,
     updateMergedContent,
     resolveConflict,
-    markConflictResolved,
     setCurrentConflict,
   } = useMergeStore();
 
@@ -67,22 +66,6 @@ export default function MergeWorkspace() {
       setActiveConflictId(null);
     },
     [resolveConflict]
-  );
-
-  const handleResolveConflictLocal = useCallback(
-    (conflictId: string) => {
-      markConflictResolved(conflictId, 'local');
-      setActiveConflictId(null);
-    },
-    [markConflictResolved]
-  );
-
-  const handleResolveConflictRemote = useCallback(
-    (conflictId: string) => {
-      markConflictResolved(conflictId, 'remote');
-      setActiveConflictId(null);
-    },
-    [markConflictResolved]
   );
 
   const handleNavigateConflict = useCallback(
@@ -243,13 +226,7 @@ export default function MergeWorkspace() {
               <ConflictBlock
                 conflict={visibleConflict}
                 onResolve={(resolution) => {
-                  if (resolution === 'local') {
-                    handleResolveConflictLocal(visibleConflict.id);
-                  } else if (resolution === 'remote') {
-                    handleResolveConflictRemote(visibleConflict.id);
-                  } else {
-                    handleResolveConflict(visibleConflict.id, 'manual');
-                  }
+                  handleResolveConflict(visibleConflict.id, resolution);
                 }}
                 onFocus={() => setActiveConflictId(visibleConflict.id)}
                 isActive={activeConflictId === visibleConflict.id}

@@ -47,7 +47,21 @@ app.use('/api', mergeRoutes)
 /**
  * error handler middleware
  */
-app.use((error: Error, req: Request, res: Response, next: NextFunction) => {
+app.use((error: any, req: Request, res: Response, next: NextFunction) => {
+  if (error && (error.type === 'entity.too.large' || error.status === 413)) {
+    res.status(413).json({
+      success: false,
+      error: 'Request payload too large',
+    })
+    return
+  }
+  if (error && (error.type === 'entity.parse.failed' || error.status === 400)) {
+    res.status(400).json({
+      success: false,
+      error: 'Invalid request body',
+    })
+    return
+  }
   res.status(500).json({
     success: false,
     error: 'Server internal error',

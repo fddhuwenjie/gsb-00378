@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Conflict, LineDiff, MergeResponse } from '@shared/types';
+import type { Conflict, LineDiff, MergeResponse, ResolveResponse } from '@shared/types';
 import { requestMerge, requestResolveConflict } from '../services/mergeApi';
 
 interface MergeState {
@@ -33,7 +33,6 @@ interface MergeState {
   setCurrentConflict: (id: string | null) => void;
   reset: () => void;
   getUnresolvedCount: () => number;
-  markConflictResolved: (conflictId: string, resolution: 'local' | 'remote' | 'manual') => void;
 }
 
 const initialState = {
@@ -97,46 +96,71 @@ export const useMergeStore = create<MergeState>((set, get) => ({
     customContent?: string
   ) => {
     const { mergedContent, conflicts } = get();
-    const conflict = conflicts.find((c) => c.id === conflictId);
+    const target = conflicts.find((c) => c.id === conflictId);
 
-    if (!conflict) return;
+    if (!target || target.resolved) {
+      set({
+        error: target?.resolved
+          ? `Conflict ${conflictId} is already resolved`
+          : `Conflict ${conflictId} not found`,
+      });
+      return;
+    }
 
     set({ isLoading: true, error: null });
 
     try {
-      const result = await requestResolveConflict(mergedContent, conflict, resolution, customContent);
+      const result: ResolveResponse = await requestResolveConflict(
+        mergedContent,
+        conflictId,
+        resolution,
+        customContent
+      );
 
-      if (result.success) {
-        const newMergedContent = result.mergedContent;
-        const lineOffset = calculateLineOffset(conflict, resolution, customContent);
-
-        const updatedConflicts = conflicts
-          .map((c) => {
-            if (c.id === conflictId) {
-              return { ...c, resolved: true, resolution };
-            }
-            if (c.startLine > conflict.startLine) {
-              return {
-                ...c,
-                startLine: c.startLine + lineOffset,
-                endLine: c.endLine + lineOffset,
-              };
-            }
-            return c;
-          })
-          .filter((c) => c.id !== conflictId || c.resolved);
-
-        set({
-          mergedContent: newMergedContent,
-          conflicts: updatedConflicts,
-          hasConflicts: updatedConflicts.some((c) => !c.resolved),
-          conflictCount: updatedConflicts.filter((c) => !c.resolved).length,
-          isLoading: false,
-          currentConflictId: null,
-        });
-      } else {
+      if (!result.success) {
         throw new Error(result.error || 'Failed to resolve conflict');
       }
+
+      const previousConflicts = get().conflicts;
+      const resolvedMap = new Map<string, Conflict>();
+      const baseContentMap = new Map<string, string[]>();
+      previousConflicts.forEach((c) => {
+        baseContentMap.set(c.id, c.baseContent);
+        if (c.id === result.resolvedId || c.resolved) {
+          resolvedMap.set(c.id, c);
+        }
+      });
+
+      const remaining: Conflict[] = result.conflicts.map((c) => ({
+        ...c,
+        baseContent: baseContentMap.get(c.id) ?? c.baseContent,
+        resolved: false,
+        resolution: null,
+      }));
+
+      for (const resolved of resolvedMap.values()) {
+        if (remaining.every((c) => c.id !== resolved.id)) {
+          remaining.push({
+            ...resolved,
+            resolved: true,
+            resolution: resolved.resolution ?? resolution,
+          });
+        }
+      }
+
+      remaining.sort((a, b) => {
+        if (a.resolved !== b.resolved) return a.resolved ? 1 : -1;
+        return a.startLine - b.startLine;
+      });
+
+      set({
+        mergedContent: result.mergedContent,
+        conflicts: remaining,
+        hasConflicts: remaining.some((c) => !c.resolved),
+        conflictCount: remaining.filter((c) => !c.resolved).length,
+        isLoading: false,
+        currentConflictId: null,
+      });
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : 'Conflict resolution failed',
@@ -154,68 +178,4 @@ export const useMergeStore = create<MergeState>((set, get) => ({
   getUnresolvedCount: () => {
     return get().conflicts.filter((c) => !c.resolved).length;
   },
-
-  markConflictResolved: (conflictId: string, resolution: 'local' | 'remote' | 'manual') => {
-    const { mergedContent, conflicts } = get();
-    const conflict = conflicts.find((c) => c.id === conflictId);
-    if (!conflict) return;
-
-    const resolutionContent =
-      resolution === 'local'
-        ? conflict.localContent.join('\n')
-        : resolution === 'remote'
-          ? conflict.remoteContent.join('\n')
-          : '';
-
-    const lines = mergedContent.split('\n');
-    const conflictLength = conflict.endLine - conflict.startLine + 1;
-    const newContentLines = resolution === 'manual' ? [] : resolutionContent.split('\n');
-    lines.splice(conflict.startLine, conflictLength, ...newContentLines);
-    const newMergedContent = lines.join('\n');
-
-    const lineOffset = newContentLines.length - conflictLength;
-
-    const updatedConflicts = conflicts
-      .map((c) => {
-        if (c.id === conflictId) {
-          return { ...c, resolved: true, resolution };
-        }
-        if (c.startLine > conflict.startLine) {
-          return {
-            ...c,
-            startLine: c.startLine + lineOffset,
-            endLine: c.endLine + lineOffset,
-          };
-        }
-        return c;
-      })
-      .filter((c) => c.id !== conflictId || c.resolved);
-
-    set({
-      mergedContent: newMergedContent,
-      conflicts: updatedConflicts,
-      hasConflicts: updatedConflicts.some((c) => !c.resolved),
-      conflictCount: updatedConflicts.filter((c) => !c.resolved).length,
-      currentConflictId: null,
-    });
-  },
 }));
-
-function calculateLineOffset(
-  conflict: Conflict,
-  resolution: 'local' | 'remote' | 'manual',
-  customContent?: string
-): number {
-  const conflictLength = conflict.endLine - conflict.startLine + 1;
-  let newLength: number;
-
-  if (resolution === 'local') {
-    newLength = conflict.localContent.length;
-  } else if (resolution === 'remote') {
-    newLength = conflict.remoteContent.length;
-  } else {
-    newLength = customContent ? customContent.split('\n').length : 0;
-  }
-
-  return newLength - conflictLength;
-}

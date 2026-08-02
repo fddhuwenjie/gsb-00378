@@ -1,4 +1,4 @@
-import type { MergeRequest, MergeResponse, Conflict } from '@shared/types';
+import type { MergeRequest, MergeResponse, ResolveResponse } from '@shared/types';
 
 const API_BASE = '/api';
 
@@ -27,10 +27,10 @@ export async function requestMerge(
 
 export async function requestResolveConflict(
   mergedContent: string,
-  conflict: Conflict,
+  conflictId: string,
   resolution: 'local' | 'remote' | 'manual',
   customContent?: string
-): Promise<{ success: boolean; mergedContent: string; error?: string }> {
+): Promise<ResolveResponse> {
   const response = await fetch(`${API_BASE}/resolve`, {
     method: 'POST',
     headers: {
@@ -38,7 +38,7 @@ export async function requestResolveConflict(
     },
     body: JSON.stringify({
       mergedContent,
-      conflict,
+      conflictId,
       resolution,
       customContent,
     }),
