@@ -44,6 +44,23 @@ export interface MergeResponse {
   error?: string;
 }
 
+export interface ResolveRequest {
+  mergedContent: string;
+  conflictId: string;
+  resolution: 'local' | 'remote' | 'manual';
+  customContent?: string;
+}
+
+export interface ResolveResponse {
+  success: boolean;
+  mergedContent: string;
+  resolvedId: string;
+  conflicts: Conflict[];
+  hasConflicts: boolean;
+  conflictCount: number;
+  error?: string;
+}
+
 export interface FileContent {
   base: string;
   local: string;

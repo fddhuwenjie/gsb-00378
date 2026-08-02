@@ -1,10 +1,7 @@
 import type { Conflict, LineDiff, DiffOperation } from '@shared/types';
 import { MyersDiff, computeLineDiff, splitLines, joinLines } from './myersDiff';
 import { generateId, toLF, linesEqualIgnoreTrailingWhitespace } from '../utils/lineUtils';
-
-const CONFLICT_START_LOCAL = '<<<<<<< local';
-const CONFLICT_SEPARATOR = '=======';
-const CONFLICT_END_REMOTE = '>>>>>>> remote';
+import { buildConflictMarkers } from './conflictMarkers';
 
 interface BaseMapping {
   baseLine: number;
@@ -74,17 +71,16 @@ export class ThreeWayMerge {
         const remoteMod = mod.remoteMod;
 
         const startLine = mergedLines.length;
+        const conflictId = generateId();
 
-        mergedLines.push(CONFLICT_START_LOCAL);
-        mergedLines.push(...localMod.content);
-        mergedLines.push(CONFLICT_SEPARATOR);
-        mergedLines.push(...remoteMod.content);
-        mergedLines.push(CONFLICT_END_REMOTE);
+        mergedLines.push(
+          ...buildConflictMarkers(conflictId, localMod.content, remoteMod.content)
+        );
 
         const endLine = mergedLines.length - 1;
 
         this.conflicts.push({
-          id: generateId(),
+          id: conflictId,
           startLine,
           endLine,
           localContent: localMod.content,
@@ -125,36 +121,62 @@ export class ThreeWayMerge {
     source: 'local' | 'remote'
   ): PendingModification[] {
     const modifications: PendingModification[] = [];
+    let lastEqualBase = -1;
     let i = 0;
 
     while (i < operations.length) {
       const op = operations[i];
 
       if (op.type === 'equal') {
+        lastEqualBase = op.oldLineNum as number;
         i++;
         continue;
       }
 
       const originalLines: string[] = [];
       const newContent: string[] = [];
-      let baseStart = op.oldLineNum ?? (operations[i - 1]?.oldLineNum ?? -1) + 1;
-      let baseEnd = baseStart;
+      let firstDeleteBase: number | null = null;
+      let lastDeleteBase: number | null = null;
+      let insertAnchor = lastEqualBase + 1;
+      let hasInsertBeforeDelete = false;
+      let hasInsertAfterDelete = false;
 
       while (i < operations.length && operations[i].type !== 'equal') {
         const currentOp = operations[i];
+
         if (currentOp.type === 'delete') {
+          if (firstDeleteBase === null) {
+            firstDeleteBase = currentOp.oldLineNum as number;
+          }
+          lastDeleteBase = currentOp.oldLineNum as number;
           originalLines.push(currentOp.content);
-          baseEnd = (currentOp.oldLineNum ?? baseStart) + 1;
         } else if (currentOp.type === 'insert') {
           newContent.push(currentOp.content);
-          if (baseEnd === baseStart) {
-            baseEnd = baseStart;
+          if (firstDeleteBase === null) {
+            hasInsertBeforeDelete = true;
+          } else {
+            hasInsertAfterDelete = true;
           }
         }
         i++;
       }
 
       if (originalLines.length > 0 || newContent.length > 0) {
+        let baseStart: number;
+        let baseEnd: number;
+
+        if (firstDeleteBase !== null) {
+          baseStart = firstDeleteBase;
+          baseEnd = (lastDeleteBase as number) + 1;
+          if (hasInsertBeforeDelete && !hasInsertAfterDelete) {
+            baseStart = insertAnchor;
+            baseEnd = insertAnchor;
+          }
+        } else {
+          baseStart = insertAnchor;
+          baseEnd = insertAnchor;
+        }
+
         modifications.push({
           type: source,
           baseStart,
@@ -252,26 +274,7 @@ export class ThreeWayMerge {
   }
 }
 
-export function resolveConflict(
-  mergedContent: string,
-  conflict: Conflict,
-  resolution: 'local' | 'remote' | 'manual',
-  customContent?: string
-): string {
-  const lines = splitLines(mergedContent);
-
-  const resolutionContent =
-    resolution === 'local'
-      ? conflict.localContent
-      : resolution === 'remote'
-        ? conflict.remoteContent
-        : splitLines(customContent ?? '');
-
-  const conflictLength = conflict.endLine - conflict.startLine + 1;
-  lines.splice(conflict.startLine, conflictLength, ...resolutionContent);
-
-  return joinLines(lines);
-}
+export { resolveConflictById } from './conflictMarkers';
 
 export function performThreeWayMerge(base: string, local: string, remote: string) {
   const merger = new ThreeWayMerge(base, local, remote);
