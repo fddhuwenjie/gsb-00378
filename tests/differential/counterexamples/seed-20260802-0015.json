@@ -1,0 +1,16 @@
+{
+  "seed": 20260802,
+  "index": 15,
+  "kind": "conflict-status",
+  "base": "beta\nlong zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz\n  indented\nlong zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz\ndelta\nemoji 🚀\nx\ndelta\n  indented\ndelta\nbeta\n",
+  "local": "beta\n中文行\nlong zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz\nlong zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz\ndelta\nemoji 🚀\nx\ndelta\n  indented\ndelta\nbeta\n",
+  "remote": "beta\nlong zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz\n  indented\ngamma\ntab\there\nlong zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz\ndelta\nemoji 🚀\nx\ndelta\n  indented\ndelta\nbeta\n",
+  "ours": {
+    "mergedContent": "beta\n中文行\nlong zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz\ngamma\ntab\there\nlong zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz\ndelta\nemoji 🚀\nx\ndelta\n  indented\ndelta\nbeta\n",
+    "hasConflicts": false
+  },
+  "git": {
+    "exitCode": 1,
+    "content": "beta\n中文行\nlong zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz\n<<<<<<< local\n=======\n  indented\ngamma\ntab\there\n>>>>>>> remote\nlong zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz\ndelta\nemoji 🚀\nx\ndelta\n  indented\ndelta\nbeta\n"
+  }
+}

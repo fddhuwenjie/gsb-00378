@@ -1,0 +1,16 @@
+{
+  "seed": 20260802,
+  "index": 127,
+  "kind": "conflict-status",
+  "base": "gamma\ngamma\ndelta\nfoo bar\n=== not a marker\ngamma\ndelta\ntrailing \nfoo bar\ntrailing \n  indented\nlínea acentuada",
+  "local": "gamma\ngamma\ndelta\nfoo bar\n=== not a marker\ngamma\ndelta\nx\nemoji 🚀\nfoo bar\ntrailing \nfoo bar\ntrailing \ny\n  indented\nemoji 🚀\nlínea acentuada\n",
+  "remote": "foo bar\ndelta\nx\nemoji 🚀\nfoo bar\ntrailing \nfoo bar\ntrailing \n  indented\nlínea acentuada\n",
+  "ours": {
+    "mergedContent": "foo bar\ndelta\nx\nemoji 🚀\nfoo bar\ntrailing \nfoo bar\ntrailing \ny\n  indented\nemoji 🚀\nlínea acentuada\n",
+    "hasConflicts": false
+  },
+  "git": {
+    "exitCode": 1,
+    "content": "foo bar\ndelta\nx\nemoji 🚀\nfoo bar\ntrailing \nfoo bar\ntrailing \ny\n  indented\n<<<<<<< local\nemoji 🚀\n=======\n>>>>>>> remote\nlínea acentuada\n"
+  }
+}

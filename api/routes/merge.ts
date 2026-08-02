@@ -1,28 +1,36 @@
 import { Router, type Request, type Response } from 'express';
-import type { MergeRequest, MergeResponse } from '@shared/types';
-import { performThreeWayMerge, resolveConflict } from '../algorithms/threeWayMerge.js';
+import type { MergeRequest, MergeResponse, Conflict } from '@shared/types';
+import { performThreeWayMerge, resolveConflict, ConflictValidationError } from '../algorithms/threeWayMerge.js';
 import { isBinaryContent, toLF } from '../utils/lineUtils.js';
 
 const router = Router();
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
+function isValidConflictShape(c: unknown): c is Conflict {
+  if (typeof c !== 'object' || c === null) return false;
+  const o = c as Record<string, unknown>;
+  const isStringArray = (v: unknown): v is string[] =>
+    Array.isArray(v) && v.every((x) => typeof x === 'string');
+  return (
+    typeof o.id === 'string' &&
+    o.id.length > 0 &&
+    Number.isInteger(o.startLine) &&
+    Number.isInteger(o.endLine) &&
+    isStringArray(o.localContent) &&
+    isStringArray(o.remoteContent)
+  );
+}
+
 router.post('/merge', async (req: Request, res: Response): Promise<void> => {
   try {
     const { base, local, remote }: MergeRequest = req.body;
 
-    if (!base || !local || !remote) {
-      res.status(400).json({
-        success: false,
-        error: 'Missing required fields: base, local, remote',
-      });
-      return;
-    }
-
+    // 空字符串是合法输入（空文件），仅拒绝缺失/非字符串
     if (typeof base !== 'string' || typeof local !== 'string' || typeof remote !== 'string') {
       res.status(400).json({
         success: false,
-        error: 'All fields must be strings',
+        error: 'Missing or invalid required fields: base, local, remote (must be strings)',
       });
       return;
     }
@@ -81,10 +89,11 @@ router.post('/resolve', async (req: Request, res: Response): Promise<void> => {
   try {
     const { mergedContent, conflict, resolution, customContent } = req.body;
 
-    if (!mergedContent || !conflict || !resolution) {
+    // mergedContent 允许为空字符串
+    if (typeof mergedContent !== 'string' || !conflict || typeof conflict !== 'object' || typeof resolution !== 'string') {
       res.status(400).json({
         success: false,
-        error: 'Missing required fields: mergedContent, conflict, resolution',
+        error: 'Missing or invalid required fields: mergedContent, conflict, resolution',
       });
       return;
     }
@@ -105,10 +114,18 @@ router.post('/resolve', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    if (!isValidConflictShape(conflict)) {
+      res.status(400).json({
+        success: false,
+        error: 'Invalid conflict object',
+      });
+      return;
+    }
+
     const newMergedContent = resolveConflict(
       mergedContent,
-      conflict,
-      resolution,
+      conflict as Conflict,
+      resolution as 'local' | 'remote' | 'manual',
       customContent
     );
 
@@ -117,6 +134,13 @@ router.post('/resolve', async (req: Request, res: Response): Promise<void> => {
       mergedContent: newMergedContent,
     });
   } catch (error) {
+    if (error instanceof ConflictValidationError) {
+      res.status(400).json({
+        success: false,
+        error: error.message,
+      });
+      return;
+    }
     console.error('Resolve conflict error:', error);
     res.status(500).json({
       success: false,

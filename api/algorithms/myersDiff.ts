@@ -13,6 +13,8 @@ interface Snake {
 export class MyersDiff {
   private a: string[];
   private b: string[];
+  private aIds: number[];
+  private bIds: number[];
   private N: number;
   private M: number;
   private MAX: number;
@@ -20,6 +22,18 @@ export class MyersDiff {
   constructor(a: string[], b: string[]) {
     this.a = a;
     this.b = b;
+    // 行内容映射为数值 id，加速大文件下的高频比较
+    const ids = new Map<string, number>();
+    const toId = (s: string): number => {
+      let id = ids.get(s);
+      if (id === undefined) {
+        id = ids.size;
+        ids.set(s, id);
+      }
+      return id;
+    };
+    this.aIds = a.map(toId);
+    this.bIds = b.map(toId);
     this.N = a.length;
     this.M = b.length;
     this.MAX = this.N + this.M;
@@ -29,10 +43,54 @@ export class MyersDiff {
     if (x < 0 || x >= this.N || y < 0 || y >= this.M) {
       return false;
     }
-    return this.a[x] === this.b[y];
+    return this.aIds[x] === this.bIds[y];
   }
 
   public computeDiff(): DiffOperation[] {
+    // 修剪公共前缀/后缀（与 git xdl 的 xdl_trim_ends 一致：
+    // 避免"insert@前 + delete@后"的错位表示，同时大幅缩小 Myers 搜索空间）
+    let start = 0;
+    while (start < this.N && start < this.M && this.aIds[start] === this.bIds[start]) {
+      start++;
+    }
+    let endA = this.N;
+    let endB = this.M;
+    while (endA > start && endB > start && this.aIds[endA - 1] === this.bIds[endB - 1]) {
+      endA--;
+      endB--;
+    }
+
+    const prefixOps: DiffOperation[] = [];
+    for (let k = 0; k < start; k++) {
+      prefixOps.push({ type: 'equal', content: this.a[k], oldLineNum: k, newLineNum: k });
+    }
+    const suffixOps: DiffOperation[] = [];
+    for (let k = 0; k < this.N - endA; k++) {
+      suffixOps.push({
+        type: 'equal',
+        content: this.a[endA + k],
+        oldLineNum: endA + k,
+        newLineNum: endB + k,
+      });
+    }
+
+    if (start === endA && start === endB) {
+      return [...prefixOps, ...suffixOps];
+    }
+
+    const sub = new MyersDiff(this.a.slice(start, endA), this.b.slice(start, endB));
+    const midOps = sub.computeCoreDiff().map((o) => ({
+      ...o,
+      oldLineNum: o.oldLineNum === null ? null : o.oldLineNum + start,
+      newLineNum: o.newLineNum === null ? null : o.newLineNum + start,
+    }));
+
+    // 在完整序列上做 slide-down 规范化并统一重排行号
+    return this.normalizeOperations([...prefixOps, ...midOps, ...suffixOps]);
+  }
+
+  /** 不做前缀/后缀修剪与规范化的核心 Myers diff */
+  private computeCoreDiff(): DiffOperation[] {
     if (this.N === 0 && this.M === 0) {
       return [];
     }
@@ -56,8 +114,79 @@ export class MyersDiff {
     }
 
     const trace = this.shortestEditScript();
-    const operations = this.backtrack(trace);
-    return operations;
+    return this.backtrack(trace);
+  }
+
+  /**
+   * 变更块 slide-down 规范化：纯插入/纯删除块后跟相同内容的 equal 行时，
+   * 将块向文件末尾方向滑动到最末位置（与 git xdiff 的锚定语义一致，
+   * 消除重复行场景下的锚定歧义），最后统一重排行号。
+   */
+  private normalizeOperations(ops: DiffOperation[]): DiffOperation[] {
+    const seq = ops.map((o) => ({ type: o.type, content: o.content }));
+
+    let i = 0;
+    while (i < seq.length) {
+      if (seq[i].type === 'equal') {
+        i++;
+        continue;
+      }
+      let j = i;
+      let delCount = 0;
+      let insCount = 0;
+      while (j < seq.length && seq[j].type !== 'equal') {
+        if (seq[j].type === 'delete') delCount++;
+        else insCount++;
+        j++;
+      }
+      // 混合块（删除+插入）不滑动
+      if (delCount > 0 && insCount > 0) {
+        i = j;
+        continue;
+      }
+      const runType: DiffOperationType = delCount > 0 ? 'delete' : 'insert';
+      const runLen = delCount + insCount;
+      const contents = seq.slice(i, j).map((o) => o.content);
+
+      // 计算可滑动步数 t：后续 equal 行内容与（旋转后的）块首行相同
+      let t = 0;
+      while (
+        j + t < seq.length &&
+        seq[j + t].type === 'equal' &&
+        seq[j + t].content === contents[t % runLen]
+      ) {
+        t++;
+      }
+
+      if (t > 0) {
+        const equals = Array.from({ length: t }, (_, k) => ({
+          type: 'equal' as const,
+          content: contents[k % runLen],
+        }));
+        const rot = t % runLen;
+        const newRun = [...contents.slice(rot), ...contents.slice(0, rot)].map((content) => ({
+          type: runType,
+          content,
+        }));
+        seq.splice(i, runLen + t, ...equals, ...newRun);
+        i += equals.length + newRun.length;
+      } else {
+        i = j;
+      }
+    }
+
+    // 滑动后统一重排行号，保证 old/new 两侧各自连续
+    let oldIdx = 0;
+    let newIdx = 0;
+    return seq.map((o) => {
+      if (o.type === 'equal') {
+        return { type: 'equal' as const, content: o.content, oldLineNum: oldIdx++, newLineNum: newIdx++ };
+      }
+      if (o.type === 'delete') {
+        return { type: 'delete' as const, content: o.content, oldLineNum: oldIdx++, newLineNum: null };
+      }
+      return { type: 'insert' as const, content: o.content, oldLineNum: null, newLineNum: newIdx++ };
+    });
   }
 
   private shortestEditScript(): Map<number, number[]> {
@@ -182,7 +311,11 @@ export class MyersDiff {
 
 export function computeLineDiff(a: string[], b: string[]): LineDiff[] {
   const myers = new MyersDiff(a, b);
-  const operations = myers.computeDiff();
+  return lineDiffsFromOperations(myers.computeDiff());
+}
+
+/** 由已计算的 diff 操作序列生成展示层 LineDiff（避免重复跑 Myers） */
+export function lineDiffsFromOperations(operations: DiffOperation[]): LineDiff[] {
   const lineDiffs: LineDiff[] = [];
 
   let i = 0;

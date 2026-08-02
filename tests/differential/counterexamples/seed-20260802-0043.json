@@ -1,0 +1,16 @@
+{
+  "seed": 20260802,
+  "index": 43,
+  "kind": "conflict-status",
+  "base": " \ntrailing \n=== not a marker\n=== not a marker\n\ngamma\ngamma\n  indented\nemoji 🚀\ntab\there\nbeta\n",
+  "local": "=== not a marker\n\ngamma\nbeta\ngamma\n  indented\nemoji 🚀\ntab\there\nbeta\n",
+  "remote": " \ntrailing \n=== not a marker\n=== not a marker\ngamma\ngamma\nx\nlong zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz\n",
+  "ours": {
+    "mergedContent": "=== not a marker\n<<<<<<< local\n\n=======\n=== not a marker\n>>>>>>> remote\ngamma\nbeta\ngamma\nx\nlong zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz\n",
+    "hasConflicts": true
+  },
+  "git": {
+    "exitCode": 0,
+    "content": "=== not a marker\ngamma\nbeta\ngamma\nx\nlong zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz\n"
+  }
+}

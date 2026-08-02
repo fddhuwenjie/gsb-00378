@@ -1,0 +1,16 @@
+{
+  "seed": 20260802,
+  "index": 37,
+  "kind": "conflict-status",
+  "base": "x",
+  "local": "",
+  "remote": "x\n",
+  "ours": {
+    "mergedContent": "",
+    "hasConflicts": false
+  },
+  "git": {
+    "exitCode": 1,
+    "content": "<<<<<<< local\n=======\nx\n>>>>>>> remote\n"
+  }
+}

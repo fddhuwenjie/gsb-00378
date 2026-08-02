@@ -101,6 +101,12 @@ export const useMergeStore = create<MergeState>((set, get) => ({
 
     if (!conflict) return;
 
+    // 重复解决同一冲突：明确拒绝，不修改任何内容
+    if (conflict.resolved) {
+      set({ error: '冲突已被解决，不能重复解决' });
+      return;
+    }
+
     set({ isLoading: true, error: null });
 
     try {
@@ -160,6 +166,22 @@ export const useMergeStore = create<MergeState>((set, get) => ({
     const conflict = conflicts.find((c) => c.id === conflictId);
     if (!conflict) return;
 
+    // 重复解决同一冲突：明确拒绝，不修改任何内容
+    if (conflict.resolved) {
+      set({ error: '冲突已被解决，不能重复解决' });
+      return;
+    }
+
+    // 定位校验：不能只靠旧绝对行号，必须确认该位置仍是冲突标记
+    const lines = mergedContent.split('\n');
+    if (
+      lines[conflict.startLine] !== '<<<<<<< local' ||
+      lines[conflict.endLine] !== '>>>>>>> remote'
+    ) {
+      set({ error: '冲突定位失败：合并内容已变化，请重新执行合并' });
+      return;
+    }
+
     const resolutionContent =
       resolution === 'local'
         ? conflict.localContent.join('\n')
@@ -167,7 +189,6 @@ export const useMergeStore = create<MergeState>((set, get) => ({
           ? conflict.remoteContent.join('\n')
           : '';
 
-    const lines = mergedContent.split('\n');
     const conflictLength = conflict.endLine - conflict.startLine + 1;
     const newContentLines = resolution === 'manual' ? [] : resolutionContent.split('\n');
     lines.splice(conflict.startLine, conflictLength, ...newContentLines);
