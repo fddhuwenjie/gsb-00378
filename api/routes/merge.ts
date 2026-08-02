@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import type { MergeRequest, MergeResponse } from '@shared/types';
-import { performThreeWayMerge, resolveConflict } from '../algorithms/threeWayMerge.js';
+import { performThreeWayMerge, resolveConflict, ConflictNotFoundError } from '../algorithms/threeWayMerge.js';
 import { isBinaryContent, toLF } from '../utils/lineUtils.js';
 
 const router = Router();
@@ -11,7 +11,7 @@ router.post('/merge', async (req: Request, res: Response): Promise<void> => {
   try {
     const { base, local, remote }: MergeRequest = req.body;
 
-    if (!base || !local || !remote) {
+    if (base == null || local == null || remote == null) {
       res.status(400).json({
         success: false,
         error: 'Missing required fields: base, local, remote',
@@ -81,7 +81,7 @@ router.post('/resolve', async (req: Request, res: Response): Promise<void> => {
   try {
     const { mergedContent, conflict, resolution, customContent } = req.body;
 
-    if (!mergedContent || !conflict || !resolution) {
+    if (mergedContent == null || conflict == null || resolution == null) {
       res.status(400).json({
         success: false,
         error: 'Missing required fields: mergedContent, conflict, resolution',
@@ -89,7 +89,23 @@ router.post('/resolve', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    if (!['local', 'remote', 'manual'].includes(resolution)) {
+    if (typeof mergedContent !== 'string') {
+      res.status(400).json({
+        success: false,
+        error: 'mergedContent must be a string',
+      });
+      return;
+    }
+
+    if (typeof conflict !== 'object' || conflict === null || Array.isArray(conflict)) {
+      res.status(400).json({
+        success: false,
+        error: 'conflict must be an object',
+      });
+      return;
+    }
+
+    if (typeof resolution !== 'string' || !['local', 'remote', 'manual'].includes(resolution)) {
       res.status(400).json({
         success: false,
         error: 'Invalid resolution type. Must be one of: local, remote, manual',
@@ -108,7 +124,7 @@ router.post('/resolve', async (req: Request, res: Response): Promise<void> => {
     const newMergedContent = resolveConflict(
       mergedContent,
       conflict,
-      resolution,
+      resolution as 'local' | 'remote' | 'manual',
       customContent
     );
 
@@ -117,6 +133,13 @@ router.post('/resolve', async (req: Request, res: Response): Promise<void> => {
       mergedContent: newMergedContent,
     });
   } catch (error) {
+    if (error instanceof ConflictNotFoundError) {
+      res.status(400).json({
+        success: false,
+        error: error.message,
+      });
+      return;
+    }
     console.error('Resolve conflict error:', error);
     res.status(500).json({
       success: false,
