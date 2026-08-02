@@ -1,6 +1,13 @@
 import type { Conflict, LineDiff, DiffOperation } from '@shared/types';
 import { MyersDiff, computeLineDiff, splitLines, joinLines } from './myersDiff';
-import { generateId, toLF, linesEqualIgnoreTrailingWhitespace } from '../utils/lineUtils';
+import { deriveConflictId, toLF, linesEqualIgnoreTrailingWhitespace } from '../utils/lineUtils';
+
+/**
+ * Bumped whenever the merge/diff output could change for the same inputs. A
+ * saved session records the version it was produced under so replay can refuse
+ * to reuse decisions across an incompatible algorithm change.
+ */
+export const ALGORITHM_VERSION = 1;
 
 const CONFLICT_START_LOCAL = '<<<<<<< local';
 const CONFLICT_SEPARATOR = '=======';
@@ -56,6 +63,10 @@ export class ThreeWayMerge {
     const mergedLines: string[] = [];
     const sortedModifications = this.sortAndDetectConflicts(localModifications, remoteModifications);
 
+    // Count how many times each content signature has appeared so identical
+    // conflict blocks get distinct-but-stable ids (occurrence index).
+    const occurrences = new Map<string, number>();
+
     let basePos = 0;
 
     for (const mod of sortedModifications) {
@@ -83,8 +94,22 @@ export class ThreeWayMerge {
 
         const endLine = mergedLines.length - 1;
 
+        // Occurrence index for this exact content signature.
+        const signature = [
+          localMod.content.join('\n'),
+          remoteMod.content.join('\n'),
+          localMod.originalLines.join('\n'),
+        ].join('\u0000');
+        const occurrence = occurrences.get(signature) ?? 0;
+        occurrences.set(signature, occurrence + 1);
+
         this.conflicts.push({
-          id: generateId(),
+          id: deriveConflictId(
+            localMod.content,
+            remoteMod.content,
+            localMod.originalLines,
+            occurrence
+          ),
           startLine,
           endLine,
           localContent: localMod.content,
@@ -252,6 +277,81 @@ export class ThreeWayMerge {
   }
 }
 
+/**
+ * Raised when a conflict cannot be located inside the merged content. This
+ * happens when the conflict was already resolved or when a client submits an
+ * unknown conflict, and it guarantees we never blindly splice arbitrary text.
+ */
+export class ConflictResolutionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ConflictResolutionError';
+  }
+}
+
+interface ConflictBlock {
+  startLine: number;
+  endLine: number;
+  localContent: string[];
+  remoteContent: string[];
+}
+
+/**
+ * Scan merged content for every `<<<<<<< / ======= / >>>>>>>` block so we can
+ * anchor a resolution on the actual marker positions rather than on absolute
+ * line numbers that drift once earlier conflicts are resolved.
+ */
+function findConflictBlocks(lines: string[]): ConflictBlock[] {
+  const blocks: ConflictBlock[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    if (lines[i] !== CONFLICT_START_LOCAL) {
+      i++;
+      continue;
+    }
+
+    const startLine = i;
+    const localContent: string[] = [];
+    let j = i + 1;
+    while (j < lines.length && lines[j] !== CONFLICT_SEPARATOR && lines[j] !== CONFLICT_END_REMOTE) {
+      localContent.push(lines[j]);
+      j++;
+    }
+
+    if (j >= lines.length || lines[j] !== CONFLICT_SEPARATOR) {
+      // Malformed / unterminated block: skip the start marker and keep scanning.
+      i++;
+      continue;
+    }
+
+    const remoteContent: string[] = [];
+    j++;
+    while (j < lines.length && lines[j] !== CONFLICT_END_REMOTE && lines[j] !== CONFLICT_START_LOCAL) {
+      remoteContent.push(lines[j]);
+      j++;
+    }
+
+    if (j >= lines.length || lines[j] !== CONFLICT_END_REMOTE) {
+      i++;
+      continue;
+    }
+
+    blocks.push({ startLine, endLine: j, localContent, remoteContent });
+    i = j + 1;
+  }
+
+  return blocks;
+}
+
+function arraysEqual(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
 export function resolveConflict(
   mergedContent: string,
   conflict: Conflict,
@@ -267,8 +367,40 @@ export function resolveConflict(
         ? conflict.remoteContent
         : splitLines(customContent ?? '');
 
-  const conflictLength = conflict.endLine - conflict.startLine + 1;
-  lines.splice(conflict.startLine, conflictLength, ...resolutionContent);
+  // Anchor on the live marker positions. Absolute line numbers from the initial
+  // merge become stale after any earlier conflict is resolved, so we locate the
+  // block whose local/remote payload matches the requested conflict.
+  const blocks = findConflictBlocks(lines);
+  const matches = blocks.filter(
+    (b) =>
+      arraysEqual(b.localContent, conflict.localContent) &&
+      arraysEqual(b.remoteContent, conflict.remoteContent)
+  );
+
+  if (matches.length === 0) {
+    // Either the conflict was already resolved (idempotency guard) or the client
+    // sent an unknown conflict. Never splice arbitrary text in that case.
+    throw new ConflictResolutionError(
+      'Conflict not found in merged content; it may already be resolved or the id is unknown'
+    );
+  }
+
+  // If duplicate blocks share identical content, break the tie with the stored
+  // start line as a positional hint (closest wins) without trusting it blindly.
+  let target = matches[0];
+  if (matches.length > 1) {
+    let bestDistance = Math.abs(target.startLine - conflict.startLine);
+    for (const candidate of matches) {
+      const distance = Math.abs(candidate.startLine - conflict.startLine);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        target = candidate;
+      }
+    }
+  }
+
+  const blockLength = target.endLine - target.startLine + 1;
+  lines.splice(target.startLine, blockLength, ...resolutionContent);
 
   return joinLines(lines);
 }
