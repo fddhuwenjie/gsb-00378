@@ -47,10 +47,18 @@ app.use('/api', mergeRoutes)
 /**
  * error handler middleware
  */
-app.use((error: Error, req: Request, res: Response, next: NextFunction) => {
-  res.status(500).json({
+app.use((error: Error & { status?: number; type?: string }, req: Request, res: Response, next: NextFunction) => {
+  // body-parser 错误（如 entity.too.large）带有 status，必须保留原始状态码
+  const status = typeof error.status === 'number' ? error.status : 500
+  const message =
+    status === 413
+      ? 'Request entity too large'
+      : status === 400
+        ? 'Invalid request body'
+        : 'Server internal error'
+  res.status(status).json({
     success: false,
-    error: 'Server internal error',
+    error: message,
   })
 })
 

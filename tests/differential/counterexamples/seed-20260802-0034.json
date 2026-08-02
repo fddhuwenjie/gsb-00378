@@ -1,0 +1,16 @@
+{
+  "seed": 20260802,
+  "index": 34,
+  "kind": "conflict-status",
+  "base": "alpha\nfoo bar\nfoo bar\ndelta\ny\ny\nlínea acentuada\ndelta\ndelta\n",
+  "local": "alpha\nfoo bar\ny\ny\nlínea acentuada\nbeta\ndelta\ntrailing \n=== not a marker\n",
+  "remote": "alpha\nfoo bar\nfoo bar\ndelta\ny\ny\n  indented\ndelta\ndelta\n",
+  "ours": {
+    "mergedContent": "alpha\nfoo bar\ny\ny\n  indented\nbeta\ndelta\ntrailing \n=== not a marker\n",
+    "hasConflicts": false
+  },
+  "git": {
+    "exitCode": 1,
+    "content": "alpha\nfoo bar\ny\ny\n<<<<<<< local\nlínea acentuada\nbeta\n=======\n  indented\n>>>>>>> remote\ndelta\ntrailing \n=== not a marker\n"
+  }
+}

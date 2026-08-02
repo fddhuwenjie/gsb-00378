@@ -1,0 +1,16 @@
+{
+  "seed": 20260802,
+  "index": 14,
+  "kind": "conflict-status",
+  "base": "trailing \n \nlínea acentuada\n  indented\ntab\there\n",
+  "local": " \nlínea acentuada\n  indented\nlínea acentuada\ntab\there\n",
+  "remote": "línea acentuada\ntrailing \nlínea acentuada\n \nlínea acentuada\ntrailing \n  indented\nlínea acentuada\ntab\there\n",
+  "ours": {
+    "mergedContent": "línea acentuada\nlínea acentuada\n \nlínea acentuada\ntrailing \n  indented\nlínea acentuada\ntab\there\n",
+    "hasConflicts": false
+  },
+  "git": {
+    "exitCode": 1,
+    "content": "<<<<<<< local\n=======\nlínea acentuada\ntrailing \nlínea acentuada\n>>>>>>> remote\n \nlínea acentuada\ntrailing \n  indented\nlínea acentuada\ntab\there\n"
+  }
+}

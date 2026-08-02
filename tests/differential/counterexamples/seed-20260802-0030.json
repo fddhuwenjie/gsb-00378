@@ -1,0 +1,16 @@
+{
+  "seed": 20260802,
+  "index": 30,
+  "kind": "conflict-status",
+  "base": "tab\there\nlong zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz\ngamma\ny\ndelta\n",
+  "local": "tab\there\nlong zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz\ngamma\ny\ndelta\nalpha\n  indented\n",
+  "remote": "delta\n\ngamma\n",
+  "ours": {
+    "mergedContent": "delta\nalpha\n  indented\n\ngamma\n",
+    "hasConflicts": false
+  },
+  "git": {
+    "exitCode": 1,
+    "content": "delta\n<<<<<<< local\nalpha\n  indented\n=======\n\ngamma\n>>>>>>> remote\n"
+  }
+}

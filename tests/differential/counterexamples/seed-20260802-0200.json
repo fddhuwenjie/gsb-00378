@@ -1,0 +1,16 @@
+{
+  "seed": 20260802,
+  "index": 200,
+  "kind": "conflict-status",
+  "base": "y\n",
+  "local": "y\n\n",
+  "remote": "línea acentuada\n",
+  "ours": {
+    "mergedContent": "línea acentuada\n\n",
+    "hasConflicts": false
+  },
+  "git": {
+    "exitCode": 1,
+    "content": "<<<<<<< local\ny\n\n=======\nlínea acentuada\n>>>>>>> remote\n"
+  }
+}

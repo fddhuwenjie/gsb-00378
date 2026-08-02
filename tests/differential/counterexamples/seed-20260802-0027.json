@@ -1,0 +1,16 @@
+{
+  "seed": 20260802,
+  "index": 27,
+  "kind": "conflict-status",
+  "base": "tab\there",
+  "local": "tab\there\n",
+  "remote": "",
+  "ours": {
+    "mergedContent": "",
+    "hasConflicts": false
+  },
+  "git": {
+    "exitCode": 1,
+    "content": "<<<<<<< local\ntab\there\n=======\n>>>>>>> remote\n"
+  }
+}

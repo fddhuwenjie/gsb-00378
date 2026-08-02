@@ -1,0 +1,16 @@
+{
+  "seed": 20260802,
+  "index": 19,
+  "kind": "conflict-status",
+  "base": "delta",
+  "local": "delta\n",
+  "remote": "alpha\n中文行\n=== not a marker\n",
+  "ours": {
+    "mergedContent": "alpha\n中文行\n=== not a marker\n\n",
+    "hasConflicts": false
+  },
+  "git": {
+    "exitCode": 1,
+    "content": "<<<<<<< local\ndelta\n=======\nalpha\n中文行\n=== not a marker\n>>>>>>> remote\n"
+  }
+}

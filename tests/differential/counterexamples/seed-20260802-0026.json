@@ -1,0 +1,16 @@
+{
+  "seed": 20260802,
+  "index": 26,
+  "kind": "conflict-status",
+  "base": "=== not a marker",
+  "local": "",
+  "remote": "=== not a marker\n",
+  "ours": {
+    "mergedContent": "",
+    "hasConflicts": false
+  },
+  "git": {
+    "exitCode": 1,
+    "content": "<<<<<<< local\n=======\n=== not a marker\n>>>>>>> remote\n"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "seed": 20260802,
+  "index": 421,
+  "kind": "conflict-status",
+  "base": "中文行\n",
+  "local": "中文行\n\n",
+  "remote": "  indented\n",
+  "ours": {
+    "mergedContent": "  indented\n\n",
+    "hasConflicts": false
+  },
+  "git": {
+    "exitCode": 1,
+    "content": "<<<<<<< local\n中文行\n\n=======\n  indented\n>>>>>>> remote\n"
+  }
+}
