@@ -57,7 +57,48 @@ export class MyersDiff {
 
     const trace = this.shortestEditScript();
     const operations = this.backtrack(trace);
-    return operations;
+    return this.cleanupOperations(operations);
+  }
+
+  private cleanupOperations(operations: DiffOperation[]): DiffOperation[] {
+    const ops = operations.map((op) => ({ ...op }));
+
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (let i = 1; i < ops.length; i++) {
+        const prev = ops[i - 1];
+        const cur = ops[i];
+        if (
+          cur.type === 'delete' &&
+          prev.type === 'equal' &&
+          prev.content === cur.content &&
+          cur.oldLineNum !== null &&
+          prev.oldLineNum !== null
+        ) {
+          const followedByInsert = i + 1 < ops.length && ops[i + 1].type === 'insert';
+          if (followedByInsert) continue;
+
+          const prevOld = prev.oldLineNum;
+          prev.oldLineNum = cur.oldLineNum;
+          cur.oldLineNum = prevOld;
+
+          ops[i - 1] = cur;
+          ops[i] = prev;
+          changed = true;
+        }
+      }
+    }
+
+    for (let i = 0; i + 1 < ops.length; i++) {
+      if (ops[i].type === 'insert' && ops[i + 1].type === 'delete') {
+        const tmp = ops[i];
+        ops[i] = ops[i + 1];
+        ops[i + 1] = tmp;
+      }
+    }
+
+    return ops;
   }
 
   private shortestEditScript(): Map<number, number[]> {

@@ -1,6 +1,7 @@
 import type { Conflict, LineDiff, DiffOperation } from '@shared/types';
 import { MyersDiff, computeLineDiff, splitLines, joinLines } from './myersDiff';
-import { generateId, toLF, linesEqualIgnoreTrailingWhitespace } from '../utils/lineUtils';
+import { toLF, linesEqualIgnoreTrailingWhitespace } from '../utils/lineUtils';
+import { shortHash } from '../utils/hash';
 
 const CONFLICT_START_LOCAL = '<<<<<<< local';
 const CONFLICT_SEPARATOR = '=======';
@@ -27,6 +28,7 @@ export class ThreeWayMerge {
   private baseToLocalOps: DiffOperation[];
   private baseToRemoteOps: DiffOperation[];
   private conflicts: Conflict[] = [];
+  private conflictSignatureCounts = new Map<string, number>();
 
   constructor(base: string, local: string, remote: string) {
     this.baseLines = splitLines(toLF(base));
@@ -84,7 +86,7 @@ export class ThreeWayMerge {
         const endLine = mergedLines.length - 1;
 
         this.conflicts.push({
-          id: generateId(),
+          id: this.stableConflictId(localMod.content, remoteMod.content, localMod.originalLines),
           startLine,
           endLine,
           localContent: localMod.content,
@@ -118,6 +120,13 @@ export class ThreeWayMerge {
       conflictCount: this.conflicts.length,
       diffs,
     };
+  }
+
+  private stableConflictId(localContent: string[], remoteContent: string[], baseContent: string[]): string {
+    const signature = JSON.stringify([localContent, remoteContent, baseContent]);
+    const occurrence = this.conflictSignatureCounts.get(signature) ?? 0;
+    this.conflictSignatureCounts.set(signature, occurrence + 1);
+    return 'conflict-' + shortHash(`${signature}:${occurrence}`, 10);
   }
 
   private extractModifications(
@@ -252,13 +261,101 @@ export class ThreeWayMerge {
   }
 }
 
+export class ConflictNotFoundError extends Error {
+  constructor(message = 'Conflict not found in merged content; it may already be resolved or the conflict data is invalid.') {
+    super(message);
+    this.name = 'ConflictNotFoundError';
+  }
+}
+
+export interface ConflictBlock {
+  startLine: number;
+  sepLine: number;
+  endLine: number;
+  localContent: string[];
+  remoteContent: string[];
+}
+
+export function parseConflictBlocks(lines: string[]): ConflictBlock[] {
+  const blocks: ConflictBlock[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    if (lines[i] !== CONFLICT_START_LOCAL) {
+      i++;
+      continue;
+    }
+
+    let sepLine = -1;
+    let endLine = -1;
+    for (let j = i + 1; j < lines.length; j++) {
+      const line = lines[j];
+      if (line === CONFLICT_SEPARATOR && sepLine === -1) {
+        sepLine = j;
+      } else if (line === CONFLICT_END_REMOTE && sepLine !== -1) {
+        endLine = j;
+        break;
+      }
+    }
+
+    if (sepLine !== -1 && endLine !== -1) {
+      blocks.push({
+        startLine: i,
+        sepLine,
+        endLine,
+        localContent: lines.slice(i + 1, sepLine),
+        remoteContent: lines.slice(sepLine + 1, endLine),
+      });
+      i = endLine + 1;
+    } else {
+      i++;
+    }
+  }
+  return blocks;
+}
+
+function arraysEqual(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
 export function resolveConflict(
   mergedContent: string,
   conflict: Conflict,
   resolution: 'local' | 'remote' | 'manual',
   customContent?: string
 ): string {
+  if (
+    !conflict ||
+    !Array.isArray(conflict.localContent) ||
+    !Array.isArray(conflict.remoteContent)
+  ) {
+    throw new ConflictNotFoundError('Conflict is malformed: localContent and remoteContent must be arrays.');
+  }
+
   const lines = splitLines(mergedContent);
+  const blocks = parseConflictBlocks(lines);
+
+  let target: ConflictBlock | null = null;
+  for (const block of blocks) {
+    if (
+      arraysEqual(block.localContent, conflict.localContent) &&
+      arraysEqual(block.remoteContent, conflict.remoteContent)
+    ) {
+      target = block;
+      break;
+    }
+  }
+
+  if (!target) {
+    throw new ConflictNotFoundError();
+  }
+
+  if (resolution !== 'local' && resolution !== 'remote' && resolution !== 'manual') {
+    throw new Error(`Invalid resolution type: ${resolution}. Must be one of: local, remote, manual`);
+  }
 
   const resolutionContent =
     resolution === 'local'
@@ -267,10 +364,13 @@ export function resolveConflict(
         ? conflict.remoteContent
         : splitLines(customContent ?? '');
 
-  const conflictLength = conflict.endLine - conflict.startLine + 1;
-  lines.splice(conflict.startLine, conflictLength, ...resolutionContent);
+  const nextLines = [
+    ...lines.slice(0, target.startLine),
+    ...resolutionContent,
+    ...lines.slice(target.endLine + 1),
+  ];
 
-  return joinLines(lines);
+  return joinLines(nextLines);
 }
 
 export function performThreeWayMerge(base: string, local: string, remote: string) {
