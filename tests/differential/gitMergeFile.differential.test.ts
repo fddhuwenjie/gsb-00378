@@ -17,6 +17,7 @@ import { genDiffScenario, type Scenario } from '../helpers/textGen';
 import { checkGitAvailable, gitMergeFile, runPool } from '../helpers/gitMerge';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// 新反例保存到本目录夹具：gitSnapshot.regression.test.ts 会自动重放
 const COUNTEREXAMPLE_DIR = path.join(__dirname, 'counterexamples');
 
 const SEED = 20260802;

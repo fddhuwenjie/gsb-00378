@@ -25,10 +25,6 @@ export function isBinaryContent(text: string): boolean {
   return false;
 }
 
-export function generateId(): string {
-  return 'conflict-' + Math.random().toString(36).substring(2, 11);
-}
-
 export function trimTrailingWhitespace(line: string): string {
   return line.replace(/\s+$/, '');
 }

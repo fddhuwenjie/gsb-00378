@@ -144,7 +144,7 @@ export class MyersDiff {
         i = j;
         continue;
       }
-      const runType = delCount > 0 ? 'delete' : 'insert';
+      const runType: DiffOperationType = delCount > 0 ? 'delete' : 'insert';
       const runLen = delCount + insCount;
       const contents = seq.slice(i, j).map((o) => o.content);
 

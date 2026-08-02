@@ -8,7 +8,7 @@
  * 种子：P1=0x9E3779B9 P2=0x85EBCA6B P3=0xC2B2AE35 P4=0x27D4EB2F
  */
 import { describe, it, expect } from 'vitest';
-import { performThreeWayMerge } from '../../api/algorithms/threeWayMerge';
+import { performThreeWayMerge, resolveConflict } from '../../api/algorithms/threeWayMerge';
 import { toLF } from '../../api/utils/lineUtils';
 import { mulberry32, randInt } from '../helpers/prng';
 import { genRandomLines, linesToText, applyRandomEdits, genDisjointScenario } from '../helpers/textGen';
@@ -154,6 +154,57 @@ describe('P5: 合并结果可重复（确定性）', () => {
       expect(r1.mergedContent).toBe(r2.mergedContent);
       expect(r1.conflictCount).toBe(r2.conflictCount);
       expect(randInt(rng, 0, 1)).toBeGreaterThanOrEqual(0); // 消耗 rng 保持序列推进
+    }
+  });
+});
+
+describe('P6: 多冲突任意顺序解决结果一致（过期行号重定位，种子 0x1B873593）', () => {
+  it('120 次迭代：正序（后续冲突持过期行号）与逆序解决结果相同，且等于手工计算结果', () => {
+    const rng = mulberry32(0x1b873593);
+    const choices = ['local', 'remote', 'manual'] as const;
+
+    for (let iter = 0; iter < 120; iter++) {
+      // k 个单行替换冲突点，间距 ≥3，唯一哨兵行保证冲突互不合并
+      const k = randInt(rng, 2, 3);
+      const n = k * 3 + randInt(rng, 0, 3);
+      const baseLines = Array.from({ length: n }, (_, i) => `b${i}`);
+      const sites: number[] = [];
+      for (let s = 0; s < k; s++) sites.push(1 + s * 3 + randInt(rng, 0, 1));
+      const localLines = baseLines.map((l, i) => (sites.includes(i) ? `L${i}` : l));
+      const remoteLines = baseLines.map((l, i) => (sites.includes(i) ? `R${i}` : l));
+
+      const merged = performThreeWayMerge(linesToText(baseLines), linesToText(localLines), linesToText(remoteLines));
+      expect(merged.conflicts, `iter=${iter}`).toHaveLength(k);
+
+      const resolutionOf = (idx: number) => choices[idx % choices.length];
+      const applyChoice = (content: string, idx: number) =>
+        resolveConflict(
+          content,
+          merged.conflicts[idx],
+          resolutionOf(idx),
+          resolutionOf(idx) === 'manual' ? `M${idx}` : undefined
+        );
+
+      // 正序：除第一个外全部持过期（旧绝对行号）的原始冲突对象
+      let forward = merged.mergedContent;
+      for (let idx = 0; idx < merged.conflicts.length; idx++) forward = applyChoice(forward, idx);
+
+      // 逆序：位置天然有效
+      let backward = merged.mergedContent;
+      for (let idx = merged.conflicts.length - 1; idx >= 0; idx--) backward = applyChoice(backward, idx);
+
+      // 手工计算的期望结果：每个冲突点替换为所选内容
+      const expectedLines = [...baseLines];
+      for (let idx = 0; idx < merged.conflicts.length; idx++) {
+        const site = sites[idx];
+        expectedLines[site] =
+          resolutionOf(idx) === 'local' ? `L${site}` : resolutionOf(idx) === 'remote' ? `R${site}` : `M${idx}`;
+      }
+      const expected = linesToText(expectedLines);
+
+      expect(forward, `iter=${iter} 正序`).toBe(expected);
+      expect(backward, `iter=${iter} 逆序`).toBe(expected);
+      expect(forward).not.toContain('<<<<<<<');
     }
   });
 });

@@ -13,6 +13,8 @@ function isValidConflictShape(c: unknown): c is Conflict {
   const isStringArray = (v: unknown): v is string[] =>
     Array.isArray(v) && v.every((x) => typeof x === 'string');
   return (
+    typeof o.id === 'string' &&
+    o.id.length > 0 &&
     Number.isInteger(o.startLine) &&
     Number.isInteger(o.endLine) &&
     isStringArray(o.localContent) &&
@@ -123,7 +125,7 @@ router.post('/resolve', async (req: Request, res: Response): Promise<void> => {
     const newMergedContent = resolveConflict(
       mergedContent,
       conflict as Conflict,
-      resolution,
+      resolution as 'local' | 'remote' | 'manual',
       customContent
     );
 
